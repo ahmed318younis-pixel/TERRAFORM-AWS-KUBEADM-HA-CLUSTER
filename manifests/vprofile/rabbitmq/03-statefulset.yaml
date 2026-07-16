@@ -1,0 +1,147 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: vprofile
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/part-of: vprofile
+
+spec:
+  serviceName: rabbitmq-headless
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rabbitmq
+        app.kubernetes.io/part-of: vprofile
+
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-worker-01
+
+      terminationGracePeriodSeconds: 60
+
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+
+      initContainers:
+        - name: fix-rabbitmq-permissions
+          image: docker.io/library/busybox:1.37
+          imagePullPolicy: IfNotPresent
+
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+
+              echo "Correcting RabbitMQ data permissions..."
+
+              chown -R 999:999 /var/lib/rabbitmq
+
+              # Owner gets full access; group and others get no access.
+              chmod -R u+rwX,go-rwx /var/lib/rabbitmq
+
+              # RabbitMQ explicitly requires owner-only cookie permissions.
+              if [ -f /var/lib/rabbitmq/.erlang.cookie ]; then
+                chmod 600 /var/lib/rabbitmq/.erlang.cookie
+                chown 999:999 /var/lib/rabbitmq/.erlang.cookie
+              fi
+
+              echo "RabbitMQ permissions corrected."
+
+              ls -ld /var/lib/rabbitmq
+
+              if [ -f /var/lib/rabbitmq/.erlang.cookie ]; then
+                ls -l /var/lib/rabbitmq/.erlang.cookie
+              fi
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+
+          volumeMounts:
+            - name: rabbitmq-data
+              mountPath: /var/lib/rabbitmq
+
+      containers:
+        - name: rabbitmq
+          image: mokhattab/vprofile-rabbitmq:1.0
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: amqp
+              containerPort: 5672
+              protocol: TCP
+
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: vprofile-secrets
+                  key: RABBITMQ_USER
+
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: vprofile-secrets
+                  key: RABBITMQ_PASSWORD
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsUser: 999
+            runAsGroup: 999
+
+          startupProbe:
+            exec:
+              command:
+                - rabbitmq-diagnostics
+                - -q
+                - ping
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 30
+
+          readinessProbe:
+            exec:
+              command:
+                - rabbitmq-diagnostics
+                - -q
+                - ping
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 6
+
+          livenessProbe:
+            exec:
+              command:
+                - rabbitmq-diagnostics
+                - -q
+                - ping
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+
+          volumeMounts:
+            - name: rabbitmq-data
+              mountPath: /var/lib/rabbitmq
+
+      volumes:
+        - name: rabbitmq-data
+          persistentVolumeClaim:
+            claimName: rabbitmq-data

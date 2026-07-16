@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: vprofile-mariadb-pv
+  labels:
+    app.kubernetes.io/name: mariadb
+    app.kubernetes.io/part-of: vprofile
+spec:
+  capacity:
+    storage: 10Gi
+
+  accessModes:
+    - ReadWriteOnce
+
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: vprofile-local
+  volumeMode: Filesystem
+
+  claimRef:
+    namespace: vprofile
+    name: mariadb-data
+
+  local:
+    path: /var/lib/vprofile/mariadb
+
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - k8s-worker-01

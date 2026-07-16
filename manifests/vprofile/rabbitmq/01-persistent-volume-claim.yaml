@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rabbitmq-data
+  namespace: vprofile
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/part-of: vprofile
+spec:
+  accessModes:
+    - ReadWriteOnce
+
+  storageClassName: vprofile-local
+  volumeMode: Filesystem
+  volumeName: vprofile-rabbitmq-pv
+
+  resources:
+    requests:
+      storage: 5Gi

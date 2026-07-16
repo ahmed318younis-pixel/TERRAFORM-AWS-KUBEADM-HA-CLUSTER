@@ -1,0 +1,22 @@
+# Terraform working directory and state
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# Local variable files may contain account-specific values
+terraform.tfvars
+*.auto.tfvars
+
+# Plans
+*.tfplan
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+manifests/vprofile/secrets.yml 

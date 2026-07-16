@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: database-headless
+  namespace: vprofile
+  labels:
+    app.kubernetes.io/name: mariadb
+    app.kubernetes.io/part-of: vprofile
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+
+  selector:
+    app.kubernetes.io/name: mariadb
+
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: database
+  namespace: vprofile
+  labels:
+    app.kubernetes.io/name: mariadb
+    app.kubernetes.io/part-of: vprofile
+spec:
+  type: ClusterIP
+
+  selector:
+    app.kubernetes.io/name: mariadb
+
+  ports:
+    - name: mysql
+      protocol: TCP
+      port: 3306
+      targetPort: mysql
